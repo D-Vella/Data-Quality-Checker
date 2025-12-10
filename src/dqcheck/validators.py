@@ -84,7 +84,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="is_not_null",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} null values" if failing > 0 else "No null values",
                 failing_count=failing,
                 failing_examples=self.df[null_mask].index.tolist()[:5],
@@ -112,7 +112,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="is_positive",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} non-positive values" if failing > 0 else "All values positive",
                 failing_count=failing,
                 failing_examples=self.df[non_positive_mask][col].tolist()[:5],
@@ -132,7 +132,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="is_in",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} values not in allowed list" if failing > 0 else "All values valid",
                 failing_count=failing,
                 failing_examples=self.df[invalid_mask][col].unique().tolist()[:5],
@@ -153,7 +153,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="matches",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} values not matching pattern" if failing > 0 else "All values match pattern",
                 failing_count=failing,
                 failing_examples=self.df[non_match_mask][col].tolist()[:5],
@@ -181,7 +181,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="min_value",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} values below {minimum}" if failing > 0 else f"All values >= {minimum}",
                 failing_count=failing,
                 failing_examples=self.df[below_min_mask][col].tolist()[:5],
@@ -209,7 +209,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="max_value",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} values above {maximum}" if failing > 0 else f"All values <= {maximum}",
                 failing_count=failing,
                 failing_examples=self.df[above_max_mask][col].tolist()[:5],
@@ -229,7 +229,7 @@ class DataValidator:
             return ValidationResult(
                 check_name="is_unique",
                 column=col,
-                passed=failing == 0,
+                passed=bool(failing == 0),
                 message=f"Found {failing} duplicate values" if failing > 0 else "All values unique",
                 failing_count=failing,
                 failing_examples=series[series.duplicated(keep='first')].tolist()[:5],
