@@ -5,6 +5,7 @@ Generates statistical summaries and metadata about DataFrames.
 """
 
 import pandas as pd
+from  pandas.api import types as ptypes
 from typing import Any
 
 
@@ -87,7 +88,30 @@ class DataProfiler:
             "memory_usage_bytes": self.df.memory_usage(deep=True).sum(),
             "total_null_count": self.df.isna().sum().sum(),
         }
+
     
+    @staticmethod
+    def is_categorical_dtype(series_or_dtype) -> bool:
+        """
+        Replacement for deprecated ptypes.is_categorical_dtype
+
+        Accepts either a pd.Series or a dtype-like object.
+        """
+        dtype = getattr(series_or_dtype, "dtype", series_or_dtype)
+        # dtype.name == "category" handles string descriptions like 'category'
+        return getattr(dtype, "name", None) == "category" or isinstance(dtype, pd.CategoricalDtype)
+
+    def is_partitionable_dtype(self, series: pd.Series) -> bool:
+        """Return True if we can reasonably provide partitioning recommendations."""
+        return (
+            ptypes.is_string_dtype(series)
+            or self.is_categorical_dtype(series)
+            #or ptypes.is_datetime64_any_dtype(series) #Commenting out datetime for now as I need to implement better handling for them.
+            or ptypes.is_integer_dtype(series)
+            or ptypes.is_float_dtype(series)
+            or ptypes.is_bool_dtype(series)
+        )
+
     def partition_recommendations(self, column: str):
         """
         Function to give partitioning recommendations based on column skewness and cardinality.
@@ -100,6 +124,12 @@ class DataProfiler:
         """
         #profile the column
         profile_results = self.profile_column(column)
+
+        if not self.is_partitionable_dtype(self.df[column]) is False:
+            print(f"Column '{column}' is of type '{profile_results['dtype']}'. Not recommended for partitioning.")
+            return
+        else:
+            print(f"Column '{column}' is of type '{profile_results['dtype']}'.")
 
         # Check the distribution
         distribution_df = self.df[column].value_counts(normalize=True)

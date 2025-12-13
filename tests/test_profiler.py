@@ -71,6 +71,8 @@ class TestProfileColumn:
         assert "Observations:" in output
         assert "Unique entries in 'category' column" in output
         assert "Total entries in DataFrame" in output
+        assert "is of type" in output
+        assert "Score" in output
 
 
 class TestProfileAll:
