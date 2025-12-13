@@ -53,6 +53,25 @@ class TestProfileColumn:
         assert profile["null_count"] == 1
         assert profile["null_percentage"] == 20.0
 
+    def test_partition_recommendations(self, sample_df):
+        profiler = DataProfiler(sample_df)
+        
+        # Capture the printed output
+        from io import StringIO
+        import sys
+        
+        captured_output = StringIO()
+        sys.stdout = captured_output
+        
+        profiler.partition_recommendations("name")
+        
+        sys.stdout = sys.__stdout__
+        
+        output = captured_output.getvalue()
+        assert "Observations:" in output
+        assert "Unique entries in 'category' column" in output
+        assert "Total entries in DataFrame" in output
+
 
 class TestProfileAll:
     """Tests for profiling all columns."""
