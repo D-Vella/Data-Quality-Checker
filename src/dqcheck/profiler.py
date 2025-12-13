@@ -102,7 +102,14 @@ class DataProfiler:
         return getattr(dtype, "name", None) == "category" or isinstance(dtype, pd.CategoricalDtype)
 
     def is_partitionable_dtype(self, series: pd.Series) -> bool:
-        """Return True if we can reasonably provide partitioning recommendations."""
+        """
+        Return True if we can reasonably provide partitioning recommendations.
+        Args:
+            series: The pandas Series to check.
+        
+        Returns:
+            bool: True if the series is of a partitionable dtype.
+        """
         return (
             ptypes.is_string_dtype(series)
             or self.is_categorical_dtype(series)
