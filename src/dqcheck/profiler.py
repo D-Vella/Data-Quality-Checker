@@ -132,11 +132,11 @@ class DataProfiler:
         #profile the column
         profile_results = self.profile_column(column)
 
-        if not self.is_partitionable_dtype(self.df[column]) is False:
+        if not self.is_partitionable_dtype(self.df[column]):
             print(f"Column '{column}' is of type '{profile_results['dtype']}'. Not recommended for partitioning.")
             return
-        else:
-            print(f"Column '{column}' is of type '{profile_results['dtype']}'.")
+
+        print(f"Column '{column}' is of type '{profile_results['dtype']}'.")
 
         # Check the distribution
         distribution_df = self.df[column].value_counts(normalize=True)
@@ -149,41 +149,41 @@ class DataProfiler:
             print("Consider handling nulls before partitioning, depending on implementation NULL values can cause data skew over time.")
         
         Cardinality = profile_results["unique_count"]
-        print(f"Unique entries in 'category' column: {Cardinality}")
+        print(f"Unique entries in '{column}' column: {Cardinality}")
 
         total_entries = profile_results["count"]
         print(f"Total entries in DataFrame: {total_entries}")
 
         biggest_entry = distribution_df.max()  # Proportion of the most frequent category
-        print(f"Biggest entry proportion in 'category' column: {biggest_entry:.2%}")
+        print(f"Biggest entry proportion in '{column}' column: {biggest_entry:.2%}")
 
         skew_factor = biggest_entry / distribution_df.mean()
-        print(f"Skew factor of 'category' column: {skew_factor:.2f}. 1.0 means no skew. 2.0 means the biggest entry is twice the average.")
+        print(f"Skew factor of '{column}' column: {skew_factor:.2f}. 1.0 means no skew. 2.0 means the biggest entry is twice the average.")
 
         print("="*40)
-        print("Reccomentation:")
-        reccomendation_score = 0
+        print("Recommendation:")
+        recommendation_score = 0
 
         if skew_factor > 5.0:
-            reccomendation_score += -1
-            print("The 'category' column is highly skewed. Score -1")
+            recommendation_score += -1
+            print(f"The '{column}' column is highly skewed. Score -1")
         elif skew_factor > 2.0:
-            reccomendation_score += 0
-            print("The 'category' column is moderately skewed. Score +0")
+            recommendation_score += 0
+            print(f"The '{column}' column is moderately skewed. Score +0")
         else:
-            reccomendation_score += 1
-            print("The 'category' column has low skew. Score +1")
+            recommendation_score += 1
+            print(f"The '{column}' column has low skew. Score +1")
 
         if Cardinality < 100:
-            reccomendation_score += 0
+            recommendation_score += 0
             print("This column has low cardinality. Score +0")
         elif Cardinality < 1000:
-            reccomendation_score += 1 #Maybe a hot take but I would having a medium cardinality means you get better performance from partitioning.
+            recommendation_score += 1 #Maybe a hot take but I would having a medium cardinality means you get better performance from partitioning.
             print("This column has medium cardinality. Score +1")
         else:
-            reccomendation_score += -1
+            recommendation_score += -1
             print("This column has high cardinality. Score -1")
 
 
-        print("Column 'category' reccomended score:", reccomendation_score, "/ 2. Higher is better.")
+        print(f"Column '{column}' recommended score:", recommendation_score, "/ 2. Higher is better.")
         print("="*40)
