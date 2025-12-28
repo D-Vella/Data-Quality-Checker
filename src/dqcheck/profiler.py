@@ -145,7 +145,7 @@ class DataProfiler:
 
             #intention is to check for cardinality of unique dates, then different breakdowns such as year, month, day etc.
             #May also want to implement quarter and half-yearly checks.
-            dt_checks ={'Daily': 'D', 'Monthly': 'MS', 'Yearly': 'Y', 'Weekly': 'W', 'Quarterly': 'QS'}
+            dt_checks ={'Daily': 'D', 'Monthly': 'M', 'Yearly': 'Y', 'Weekly': 'W', 'Quarterly': 'Q'}
             dt_col = self.df[column]
             for check_name, freq in dt_checks.items():
                 unique_dates = dt_col.dt.floor(freq).nunique()
