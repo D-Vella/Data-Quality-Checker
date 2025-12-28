@@ -143,14 +143,19 @@ class DataProfiler:
             # For datetime columns, we might want to consider partitioning by date ranges
             # This is a placeholder for more specific logic
 
-            #intention is to check for cardinality of unique dates, then different breakdowns such as year, month, day etc.
-            #May also want to implement quarter and half-yearly checks.
-            dt_checks ={'Daily': 'D', 'Monthly': 'M', 'Yearly': 'Y', 'Weekly': 'W', 'Quarterly': 'Q'}
+            # intention is to check for cardinality of unique dates, then different breakdowns such as year, month, day etc.
+            # May also want to implement quarter and half-yearly checks.
+            # Use period-based grouping for non-fixed frequencies (months/quarters/years) and fallback for fixed ones
+            dt_checks = {'Daily': 'D', 'Weekly': 'W', 'Monthly': 'M', 'Quarterly': 'Q', 'Yearly': 'Y'}
             dt_col = self.df[column]
             for check_name, freq in dt_checks.items():
-                unique_dates = dt_col.dt.floor(freq).nunique()
+                try:
+                    # to_period handles non-fixed frequencies safely (e.g., 'M', 'Q', 'Y')
+                    unique_dates = dt_col.dt.to_period(freq).nunique()
+                except Exception:
+                    # Fallback for fixed-length frequencies (days, weeks)
+                    unique_dates = dt_col.dt.floor(freq).nunique()
                 print(f"Unique {check_name.lower()} in '{column}' column: {unique_dates}")
-            pass
 
         # Check the distribution
         distribution_df = self.df[column].value_counts(normalize=True)
@@ -158,7 +163,7 @@ class DataProfiler:
         print("="*40)
         print("Observations:")
 
-        if profile_results["null_count"] is not None:
+        if profile_results["null_count"] > 0:
             print(f"WARNING: Null values in '{column}' column: {profile_results['null_count']} ({profile_results['null_percentage']}%)")
             print("Consider handling nulls before partitioning, depending on implementation NULL values can cause data skew over time.")
         
