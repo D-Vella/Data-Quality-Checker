@@ -89,6 +89,86 @@ class DataProfiler:
             "total_null_count": self.df.isna().sum().sum(),
         }
 
+    def estimate_compressed_size(self) -> dict[str, Any]:
+        """
+        Estimate the compressed size for Parquet/Delta Lake storage.
+
+        This uses heuristics based on data types and compression ratios:
+        - Numeric types: ~20-40% of memory size (good compression)
+        - String types: ~30-60% of memory size (depends on repetition)
+        - Datetime types: ~10-20% of memory size (excellent compression)
+        - Boolean types: ~5-10% of memory size (excellent compression)
+
+        Returns:
+            Dictionary with size estimates and partitioning recommendations.
+        """
+        memory_bytes = self.df.memory_usage(deep=True).sum()
+
+        # Estimate compression by data type
+        compressed_estimate = 0
+
+        for col in self.df.columns:
+            series = self.df[col]
+            col_memory = series.memory_usage(deep=True)
+
+            if ptypes.is_numeric_dtype(series):
+                # Numeric data compresses well (20-40% of original)
+                compression_ratio = 0.30
+            elif ptypes.is_datetime64_any_dtype(series):
+                # Datetime compresses very well (10-20% of original)
+                compression_ratio = 0.15
+            elif ptypes.is_bool_dtype(series):
+                # Boolean compresses extremely well (5-10% of original)
+                compression_ratio = 0.08
+            elif ptypes.is_string_dtype(series) or series.dtype == "object":
+                # String compression depends on cardinality
+                cardinality_ratio = series.nunique() / len(series)
+                if cardinality_ratio < 0.01:  # Low cardinality (< 1% unique)
+                    compression_ratio = 0.20  # Excellent compression
+                elif cardinality_ratio < 0.10:  # Medium cardinality (< 10% unique)
+                    compression_ratio = 0.40  # Good compression
+                else:  # High cardinality
+                    compression_ratio = 0.60  # Moderate compression
+            else:
+                # Default conservative estimate
+                compression_ratio = 0.50
+
+            compressed_estimate += col_memory * compression_ratio
+
+        # Convert to human-readable sizes
+        def format_bytes(bytes_val):
+            if bytes_val < 1024:
+                return f"{bytes_val:.2f} B"
+            elif bytes_val < 1024**2:
+                return f"{bytes_val/1024:.2f} KB"
+            elif bytes_val < 1024**3:
+                return f"{bytes_val/1024**2:.2f} MB"
+            else:
+                return f"{bytes_val/1024**3:.2f} GB"
+
+        # Determine if partitioning is recommended based on size
+        size_mb = compressed_estimate / (1024**2)
+
+        if size_mb < 100:
+            partition_worthwhile = False
+            size_recommendation = "Too small for partitioning (< 100 MB). Partitioning overhead would exceed benefits."
+        elif size_mb < 1024:  # < 1 GB
+            partition_worthwhile = True
+            size_recommendation = f"Medium dataset ({format_bytes(compressed_estimate)}). Partitioning beneficial if queries are selective."
+        else:  # >= 1 GB
+            partition_worthwhile = True
+            size_recommendation = f"Large dataset ({format_bytes(compressed_estimate)}). Partitioning highly recommended."
+
+        return {
+            "memory_usage_bytes": memory_bytes,
+            "memory_usage_formatted": format_bytes(memory_bytes),
+            "estimated_compressed_bytes": int(compressed_estimate),
+            "estimated_compressed_formatted": format_bytes(compressed_estimate),
+            "compression_ratio": compressed_estimate / memory_bytes if memory_bytes > 0 else 0,
+            "partition_worthwhile": partition_worthwhile,
+            "size_recommendation": size_recommendation,
+        }
+
     
     @staticmethod
     def is_categorical_dtype(series_or_dtype) -> bool:
@@ -234,6 +314,20 @@ class DataProfiler:
         # Check if this is a datetime column
         is_datetime = ptypes.is_datetime64_any_dtype(self.df[column])
 
+        # Estimate dataset size for partitioning viability
+        size_info = self.estimate_compressed_size()
+
+        print("="*40)
+        print("Dataset Size Analysis:")
+        print(f"Estimated Parquet/Delta size: {size_info['estimated_compressed_formatted']}")
+        print(f"Compression ratio: {size_info['compression_ratio']:.1%}")
+        print(f"Partitioning worthwhile: {'Yes' if size_info['partition_worthwhile'] else 'No'}")
+        print(f"Recommendation: {size_info['size_recommendation']}")
+
+        if not size_info['partition_worthwhile']:
+            print("\n⚠️  WARNING: Dataset too small for effective partitioning.")
+            print("Consider partitioning only if you expect significant data growth.")
+
         print("="*40)
         print("Observations:")
 
@@ -257,6 +351,34 @@ class DataProfiler:
 
             print(f"\nRecommended grouping: {datetime_analysis['recommended_grouping'].upper()}")
             print(f"Reason: {datetime_analysis['reason']}")
+
+            # Estimate size per partition
+            total_size = size_info['estimated_compressed_bytes']
+            partition_count = datetime_analysis['partition_count']
+            avg_partition_size = total_size / partition_count if partition_count > 0 else 0
+
+            def format_bytes(bytes_val):
+                if bytes_val < 1024:
+                    return f"{bytes_val:.2f} B"
+                elif bytes_val < 1024**2:
+                    return f"{bytes_val/1024:.2f} KB"
+                elif bytes_val < 1024**3:
+                    return f"{bytes_val/1024**2:.2f} MB"
+                else:
+                    return f"{bytes_val/1024**3:.2f} GB"
+
+            print(f"\nEstimated size per partition: {format_bytes(avg_partition_size)}")
+
+            # Check if partition size is in optimal range (128 MB - 1 GB for Delta/Parquet)
+            size_mb = avg_partition_size / (1024**2)
+            if size_mb < 10:
+                print("⚠️  Partitions may be too small (< 10 MB). Consider fewer partitions or wait for data growth.")
+            elif size_mb < 128:
+                print("ℹ️  Partition size acceptable but on the smaller side.")
+            elif size_mb <= 1024:
+                print("✓ Partition size in optimal range (128 MB - 1 GB).")
+            else:
+                print("⚠️  Partitions may be too large (> 1 GB). Consider more granular partitioning.")
 
             print("="*40)
             print("Recommendation:")
