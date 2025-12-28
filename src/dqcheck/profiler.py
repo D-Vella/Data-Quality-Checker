@@ -113,7 +113,7 @@ class DataProfiler:
         return (
             ptypes.is_string_dtype(series)
             or self.is_categorical_dtype(series)
-            #or ptypes.is_datetime64_any_dtype(series) #Commenting out datetime for now as I need to implement better handling for them.
+            or ptypes.is_datetime64_any_dtype(series) #Commenting out datetime for now as I need to implement better handling for them.
             or ptypes.is_integer_dtype(series)
             or ptypes.is_float_dtype(series)
             or ptypes.is_bool_dtype(series)
@@ -137,6 +137,20 @@ class DataProfiler:
             return
 
         print(f"Column '{column}' is of type '{profile_results['dtype']}'.")
+
+        if ptypes.is_datetime64_any_dtype(self.df[column]):
+            print("Column is datetime type. Partitioning recommendations may vary.")
+            # For datetime columns, we might want to consider partitioning by date ranges
+            # This is a placeholder for more specific logic
+
+            #intention is to check for cardinality of unique dates, then different breakdowns such as year, month, day etc.
+            #May also want to implement quarter and half-yearly checks.
+            dt_checks ={'Daily': 'D', 'Monthly': 'MS', 'Yearly': 'Y', 'Weekly': 'W', 'Quarterly': 'QS'}
+            dt_col = self.df[column]
+            for check_name, freq in dt_checks.items():
+                unique_dates = dt_col.dt.floor(freq).nunique()
+                print(f"Unique {check_name.lower()} in '{column}' column: {unique_dates}")
+            pass
 
         # Check the distribution
         distribution_df = self.df[column].value_counts(normalize=True)
